@@ -23,18 +23,17 @@ pub const Board = struct {
     map: Array(Color, 2),
     bit_map: Array(u8, 4),
     score: Array(i32, 3),
-    nnue: Nnue,
 
     const Self = @This();
 
     pub fn init(width: usize, height: usize, allocator: Allocator) error{OutOfMemory}!Self {
-        var map = try Array(Color, 2).init(allocator, [2]usize{ width + 8, height + 8 });
+        var map = try Array(Color, 2).init(allocator, .{ width + 8, height + 8 });
         errdefer map.deinit();
         std.mem.set(Color, map.data, .None);
-        var bit_map = try Array(u8, 4).init(allocator, [4]usize{ width + 8, height + 8, 2, 4 });
+        var bit_map = try Array(u8, 4).init(allocator, .{ width + 8, height + 8, 2, 4 });
         errdefer bit_map.deinit();
         std.mem.set(u8, bit_map.data, 0);
-        var score = try Array(i32, 3).init(allocator, [3]usize{ width + 8, height + 8, 2 });
+        var score = try Array(i32, 3).init(allocator, .{ width + 8, height + 8, 2 });
         errdefer allocator.free(score);
         std.mem.set(i32, score.data, 0);
         var i: isize = 0;
@@ -44,7 +43,7 @@ pub const Board = struct {
                 if (4 <= i and i < width + 4 and 4 <= j and j < height + 4) {
                     continue;
                 }
-                map.set([2]usize{ @bitCast(usize, i), @bitCast(usize, j) }, .Out);
+                map.set(.{ @bitCast(usize, i), @bitCast(usize, j) }, .Out);
                 inline for (dir) |n, d| {
                     const dx = n[0];
                     const dy = n[1];
@@ -53,22 +52,21 @@ pub const Board = struct {
                         if (i - k * dx < 0 or i - k * dx >= width + 8 or j - k * dy < 0 or j - k * dy >= height + 8) {
                             continue;
                         }
-                        bit_map.set([4]usize{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 0, d }, (@as(u8, 1) << (4 - k)) | bit_map.get([4]usize{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 0, d }));
-                        bit_map.set([4]usize{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 1, d }, (@as(u8, 1) << (4 - k)) | bit_map.get([4]usize{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 1, d }));
+                        bit_map.set(.{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 0, d }, (@as(u8, 1) << (4 - k)) | bit_map.get(.{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 0, d }));
+                        bit_map.set(.{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 1, d }, (@as(u8, 1) << (4 - k)) | bit_map.get(.{ @bitCast(usize, i - k * dx), @bitCast(usize, j - k * dy), 1, d }));
                     }
                     k = 1;
                     while (k <= 4) : (k += 1) {
                         if (i + k * dx < 0 or i + k * dx >= width + 8 or j + k * dy < 0 or j + k * dy >= height + 8) {
                             continue;
                         }
-                        bit_map.set([4]usize{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 0, d }, (@as(u8, 1) << (3 + k)) | bit_map.get([4]usize{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 0, d }));
-                        bit_map.set([4]usize{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 1, d }, (@as(u8, 1) << (3 + k)) | bit_map.get([4]usize{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 1, d }));
+                        bit_map.set(.{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 0, d }, (@as(u8, 1) << (3 + k)) | bit_map.get(.{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 0, d }));
+                        bit_map.set(.{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 1, d }, (@as(u8, 1) << (3 + k)) | bit_map.get(.{ @bitCast(usize, i + k * dx), @bitCast(usize, j + k * dy), 1, d }));
                     }
                 }
             }
         }
-        var nnue = Nnue.init();
-        return Self{ .map = map, .bit_map = bit_map, .score = score, .nnue = nnue };
+        return Self{ .map = map, .bit_map = bit_map, .score = score };
     }
 
     pub fn deinit(self: Self) void {
@@ -78,7 +76,7 @@ pub const Board = struct {
     }
 
     pub fn get(self: *const Self, index: [2]usize) Color {
-        return self.map.get([2]usize{ index[0] + 4, index[1] + 4 });
+        return self.map.get(.{ index[0] + 4, index[1] + 4 });
     }
 
     fn getBits(self: *const Self, x: usize, y: usize) [2][4]u8 {
@@ -87,7 +85,7 @@ pub const Board = struct {
         inline while (p < 2) : (p += 1) {
             comptime var d = 0;
             inline while (d < 4) : (d += 1) {
-                bits[p][d] = self.bit_map.get([4]usize{ x, y, p, d });
+                bits[p][d] = self.bit_map.get(.{ x, y, p, d });
             }
         }
         return bits;
@@ -96,65 +94,36 @@ pub const Board = struct {
     pub fn update(self: *Self, index: [2]usize, color: Color) void {
         const x = @bitCast(isize, index[0] + 4);
         const y = @bitCast(isize, index[1] + 4);
-        const old_color = self.map.get([2]usize{ @bitCast(usize, x), @bitCast(usize, y) });
-        self.map.set([2]usize{ @bitCast(usize, x), @bitCast(usize, y) }, color);
+        const old_color = self.map.get(.{ @bitCast(usize, x), @bitCast(usize, y) });
+        self.map.set(.{ @bitCast(usize, x), @bitCast(usize, y) }, color);
         inline for (dir) |n, d| {
             const dx = n[0];
             const dy = n[1];
             var k: u3 = 1;
             while (k <= 4) : (k += 1) {
-                self.bit_map.set([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }, ~(@as(u8, @boolToInt(old_color == .White)) << (4 - k)) & self.bit_map.get([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }));
-                self.bit_map.set([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }, ~(@as(u8, @boolToInt(old_color == .Black)) << (4 - k)) & self.bit_map.get([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }));
-                self.bit_map.set([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }, (@as(u8, @boolToInt(color == .White)) << (4 - k)) | self.bit_map.get([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }));
-                self.bit_map.set([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }, (@as(u8, @boolToInt(color == .Black)) << (4 - k)) | self.bit_map.get([4]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }));
+                self.bit_map.set(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }, ~(@as(u8, @boolToInt(old_color == .White)) << (4 - k)) & self.bit_map.get(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }));
+                self.bit_map.set(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }, ~(@as(u8, @boolToInt(old_color == .Black)) << (4 - k)) & self.bit_map.get(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }));
+                self.bit_map.set(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }, (@as(u8, @boolToInt(color == .White)) << (4 - k)) | self.bit_map.get(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0, d }));
+                self.bit_map.set(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }, (@as(u8, @boolToInt(color == .Black)) << (4 - k)) | self.bit_map.get(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1, d }));
                 const bits = self.getBits(@bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy));
-                self.score.set([3]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0 }, getScore(bits, false));
-                self.score.set([3]usize{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1 }, getScore(bits, true));
+                self.score.set(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 0 }, getScore(bits, false));
+                self.score.set(.{ @bitCast(usize, x - k * dx), @bitCast(usize, y - k * dy), 1 }, getScore(bits, true));
             }
             k = 1;
             while (k <= 4) : (k += 1) {
-                self.bit_map.set([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }, ~(@as(u8, @boolToInt(old_color == .White)) << (3 + k)) & self.bit_map.get([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }));
-                self.bit_map.set([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }, ~(@as(u8, @boolToInt(old_color == .Black)) << (3 + k)) & self.bit_map.get([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }));
-                self.bit_map.set([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }, (@as(u8, @boolToInt(color == .White)) << (3 + k)) | self.bit_map.get([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }));
-                self.bit_map.set([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }, (@as(u8, @boolToInt(color == .Black)) << (3 + k)) | self.bit_map.get([4]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }));
+                self.bit_map.set(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }, ~(@as(u8, @boolToInt(old_color == .White)) << (3 + k)) & self.bit_map.get(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }));
+                self.bit_map.set(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }, ~(@as(u8, @boolToInt(old_color == .Black)) << (3 + k)) & self.bit_map.get(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }));
+                self.bit_map.set(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }, (@as(u8, @boolToInt(color == .White)) << (3 + k)) | self.bit_map.get(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0, d }));
+                self.bit_map.set(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }, (@as(u8, @boolToInt(color == .Black)) << (3 + k)) | self.bit_map.get(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1, d }));
                 const bits = self.getBits(@bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy));
-                self.score.set([3]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0 }, getScore(bits, false));
-                self.score.set([3]usize{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1 }, getScore(bits, true));
+                self.score.set(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 0 }, getScore(bits, false));
+                self.score.set(.{ @bitCast(usize, x + k * dx), @bitCast(usize, y + k * dy), 1 }, getScore(bits, true));
             }
         }
     }
 
     pub fn evaluate(self: *const Self, x: usize, y: usize, is_black: bool) i32 {
-        return self.score.get([3]usize{ x + 4, y + 4, @boolToInt(is_black) });
-    }
-
-    pub fn evaluateAll(self: *Self) i32 { // TODO: switch to NNUE
-        return self.evaluateAllClassical();
-    }
-
-    pub fn evaluateAllClassical(self: *const Self) i32 {
-        var result: i32 = 0;
-        var i: usize = 0;
-        while (i < self.map.dimension[0] - 8) : (i += 1) {
-            var j: usize = 0;
-            while (j < self.map.dimension[1] - 8) : (j += 1) {
-                if (self.get([2]usize{ i, j }) == .None) {
-                    result += self.evaluate(i, j, true);
-                    result -= self.evaluate(i, j, false);
-                    if (self.evaluate(i, j, true) >= 100_000) {
-                        result += 100_000_000;
-                    }
-                    if (self.evaluate(i, j, false) >= 100_000) {
-                        result -= 100_000_000;
-                    }
-                }
-            }
-        }
-        return result;
-    }
-
-    pub fn evaluateAllNnue(self: *Self) i32 {
-        return self.nnue.evaluate(self);
+        return self.score.get(.{ x + 4, y + 4, @boolToInt(is_black) });
     }
 
     pub fn isFourSleep(self: *const Self, x: usize, y: usize, is_black: bool) bool {
@@ -189,7 +158,7 @@ pub const Board = struct {
         while (i < self.map.dimension[0] - 8) : (i += 1) {
             var j: usize = 0;
             while (j < self.map.dimension[0] - 8) : (j += 1) {
-                buf[j] = switch (self.get([2]usize{ i, j })) {
+                buf[j] = switch (self.get(.{ i, j })) {
                     .None => '.',
                     .Black => 'x',
                     .White => 'o',

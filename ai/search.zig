@@ -1,6 +1,7 @@
 const std = @import("std");
 const sort = std.sort.sort;
 const Brain = @import("ai.zig").Brain;
+const evaluateAll = @import("evaluate.zig").evaluateAll;
 const response = @import("../protocol.zig").response;
 
 const vcfSolver = @import("vct.zig").vcfSolver;
@@ -84,7 +85,7 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
         if (0 < try vcfSolver(0, 0, is_black, brain)) {
             return search_win_threshold;
         }
-        return brain.board.evaluateAll();
+        return evaluateAll(brain);
     }
     if (isTimeOut()) {
         return search_terminate_value;
@@ -102,7 +103,7 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
         while (i < width) : (i += 1) {
             var j: usize = 0;
             while (j < height) : (j += 1) {
-                candidate[index] = [2]usize{ i, j };
+                candidate[index] = .{ i, j };
                 index += 1;
             }
         }
@@ -138,9 +139,9 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
                 return -search_win_threshold;
             }
         }
-        brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+        brain.board.update(.{ x, y }, if (is_black) .Black else .White);
         const score: i32 = try alphabeta(depth + 1, !is_black, alpha, beta);
-        brain.board.update([2]usize{ x, y }, .None);
+        brain.board.update(.{ x, y }, .None);
         count += 1;
         if (score == search_terminate_value) {
             return search_terminate_value;
@@ -160,7 +161,7 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
         }
         if (beta <= alpha) {
             if (depth == 0) {
-                optimal = [2]usize{ best_x, best_y };
+                optimal = .{ best_x, best_y };
             }
             if (is_black) {
                 return beta;
@@ -170,7 +171,7 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
         }
     }
     if (depth == 0) {
-        optimal = [2]usize{ best_x, best_y };
+        optimal = .{ best_x, best_y };
     }
     if (is_black) {
         return alpha;

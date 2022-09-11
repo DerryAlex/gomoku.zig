@@ -321,6 +321,7 @@ pub const GameManager = struct {
         std.mem.set(Color, board.data, .None);
         var timer = try Timer.start();
         var brain = try allocator.create(Brain);
+        errdefer allocator.destroy(brain);
         return Self{ .board = board, .timer = timer, .brain = brain, .allocator = allocator };
     }
 
@@ -346,7 +347,7 @@ pub const GameManager = struct {
     }
 
     // Call brain
-    fn play(self: *Self) error{OutOfMemory}!void {
+    fn play(self: *Self) !void {
         self.timer.reset();
         const position = try self.brain.play();
         response(.Answer, "", .{ position[0], position[1] });
@@ -356,21 +357,21 @@ pub const GameManager = struct {
     }
 
     // Call brain for evaluation
-    fn evaluate(self: *Self, x: usize, y: usize) void {
+    fn evaluate(self: *Self, x: usize, y: usize) !void {
         if (comptime builtin.mode == .Debug) {
-            self.brain.evaluate(x, y);
+            try self.brain.evaluate(x, y);
         }
     }
 
     /// Process command sent by Gomocup manager
-    pub fn process(self: *Self, command: Command) error{ InvalidCommand, OutOfMemory }!void {
+    pub fn process(self: *Self, command: Command) !void {
         switch (command) {
             .Turn => {
                 if (self.player == .None) {
                     self.player = .White;
                     try self.brain.init(self);
                 }
-                self.board.set([2]usize{ command.Turn.x, command.Turn.y }, if (self.player == .Black) .White else .Black);
+                self.board.set(.{ command.Turn.x, command.Turn.y }, if (self.player == .Black) .White else .Black);
                 try self.play();
             },
             .Begin => {
@@ -403,10 +404,10 @@ pub const GameManager = struct {
                 for (command.Board.data) |datum| {
                     switch (datum.field) {
                         .Own => {
-                            self.board.set([2]usize{ datum.x, datum.y }, self.player);
+                            self.board.set(.{ datum.x, datum.y }, self.player);
                         },
                         .Opponent => {
-                            self.board.set([2]usize{ datum.x, datum.y }, if (self.player == .Black) .White else .Black);
+                            self.board.set(.{ datum.x, datum.y }, if (self.player == .Black) .White else .Black);
                         },
                         .Winning => {
                             self.reset();
@@ -440,7 +441,7 @@ pub const GameManager = struct {
                         self.rule = command.Info.value.rule;
                     },
                     .Evaluate => {
-                        self.evaluate(command.Info.value.position.x, command.Info.value.position.y);
+                        try self.evaluate(command.Info.value.position.x, command.Info.value.position.y);
                     },
                     .Folder => {
                         self.folder = try self.allocator.dupe(u8, command.Info.value.folder);
@@ -455,11 +456,11 @@ pub const GameManager = struct {
                 response(.Ok, "", .{});
             },
             .Takeback => {
-                self.board.set([2]usize{ command.Takeback.x, command.Takeback.y }, .None);
+                self.board.set(.{ command.Takeback.x, command.Takeback.y }, .None);
                 response(.Ok, "", .{});
             },
             .Play => {
-                self.board.set([2]usize{ command.Play.x, command.Play.y }, self.player);
+                self.board.set(.{ command.Play.x, command.Play.y }, self.player);
                 response(.Answer, "", .{ command.Play.x, command.Play.y });
             },
             else => {

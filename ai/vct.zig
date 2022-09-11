@@ -78,7 +78,7 @@ pub fn vcf(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
         while (i < width) : (i += 1) {
             var j: usize = 0;
             while (j < height) : (j += 1) {
-                candidate[index] = [2]usize{ i, j };
+                candidate[index] = .{ i, j };
                 index += 1;
             }
         }
@@ -109,9 +109,9 @@ pub fn vcf(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
             if (brain.board.evaluate(x, y, is_black) < 0) { // TODO: replace with renju.checkLegal
                 return -1;
             }
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vcf(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (depth == 0) {
                 optimal = position;
             }
@@ -149,9 +149,9 @@ pub fn vcf(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
         }
         const value = brain.board.evaluate(x, y, is_black);
         if (value >= 20_000 and value < 45000) {
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vcf(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (ret > 0) {
                 if (depth == 0) {
                     optimal = position;
@@ -174,9 +174,9 @@ pub fn vcf(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
             continue;
         }
         if (brain.board.isFourSleep(x, y, is_black)) {
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vcf(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (ret > 0) {
                 if (depth == 0) {
                     optimal = position;
@@ -200,7 +200,7 @@ pub fn vct(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
         while (i < width) : (i += 1) {
             var j: usize = 0;
             while (j < height) : (j += 1) {
-                candidate[index] = [2]usize{ i, j };
+                candidate[index] = .{ i, j };
                 index += 1;
             }
         }
@@ -231,9 +231,9 @@ pub fn vct(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
             if (brain.board.evaluate(x, y, is_black) < 0) { // TODO: replace with renju.checkLegal
                 return -1;
             }
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vct(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (depth == 0) {
                 optimal = position;
             }
@@ -279,9 +279,9 @@ pub fn vct(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
             if (defense == null) {
                 defense = false;
             }
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vct(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (ret > 0) {
                 if (depth == 0) {
                     optimal = position;
@@ -311,9 +311,9 @@ pub fn vct(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
         }
         const value = brain.board.evaluate(x, y, is_black);
         if (value >= 20_000 and value < 45_000) {
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vct(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (ret > 0) {
                 if (depth == 0) {
                     optimal = position;
@@ -333,9 +333,9 @@ pub fn vct(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
             continue;
         }
         if (brain.board.isFourSleep(x, y, is_black)) {
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vct(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (ret > 0) {
                 if (depth == 0) {
                     optimal = position;
@@ -352,9 +352,9 @@ pub fn vct(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
         }
         const value = brain.board.evaluate(x, y, is_black);
         if (value >= 10_000 and value < 20_000) {
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vct(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (ret > 0) {
                 if (depth == 0) {
                     optimal = position;
@@ -374,9 +374,9 @@ pub fn vct(depth: usize, is_black: bool) error{OutOfMemory}!i8 {
             continue;
         }
         if (brain.board.isThree(x, y, is_black)) {
-            brain.board.update([2]usize{ x, y }, if (is_black) .Black else .White);
+            brain.board.update(.{ x, y }, if (is_black) .Black else .White);
             const ret = -try vct(depth + 1, !is_black);
-            brain.board.update([2]usize{ x, y }, .None);
+            brain.board.update(.{ x, y }, .None);
             if (ret > 0) {
                 if (depth == 0) {
                     optimal = position;
