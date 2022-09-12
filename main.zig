@@ -15,7 +15,15 @@ pub fn main() !void {
     var stdin_scanner = scanner(std.io.getStdIn().reader());
     var manager: GameManager = undefined;
     while (true) {
-        var command = try stdin_scanner.scanAlloc(Command, allocator);
+        var command = stdin_scanner.scanAlloc(Command, allocator) catch |err| switch (err) {
+            error.InvalidCommand => {
+                response(.Unknown, "Invalid Command", .{});
+                continue;
+            },
+            else => {
+                return err;
+            },
+        };
         defer command.deinit();
         switch (command) {
             .Start => {

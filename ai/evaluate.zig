@@ -1,7 +1,7 @@
 const Brain = @import("ai.zig").Brain;
 
 pub fn evaluateAll(brain: *Brain) i32 {
-    if (false) {
+    if (false) { // NOTE: NNUE is weak
         return evaluateAllNnue(brain);
     } else {
         return evaluateAllClassical(brain);

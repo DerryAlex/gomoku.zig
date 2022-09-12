@@ -2,88 +2,119 @@ const std = @import("std");
 const BoundedArray = std.BoundedArray;
 const Board = @import("board.zig").Board;
 
-const DataType = i32;
+const DataType = f32;
 const DataVecN = 256 / @bitSizeOf(DataType);
 const DataVec = @Vector(DataVecN, DataType);
 
-const weight_min = -126;
-const weight_max = 126;
-const grad_min = -1000;
-const grad_max = 1000;
-
-fn clamp(val: anytype, min: @TypeOf(val), max: @TypeOf(val)) @TypeOf(val) {
-    return if (val >= max) max else if (val <= min) min else val;
+pub fn clamp(value: DataType, min_val: DataType, max_val: DataType) DataType {
+    const val_c = if (value < min_val) min_val else value;
+    return if (val_c > max_val) max_val else val_c;
 }
 
-fn __quantmoid(x: DataVec) DataVec {
-    const v0 = @splat(DataVecN, @as(DataType, 0));
-    const v64 = @splat(DataVecN, @as(DataType, 64));
-    const v127 = @splat(DataVecN, @as(DataType, 127));
-    const x_sgn = x < v0;
-    const x_abs = @select(DataType, x_sgn, -x, x);
-    const xx = @select(DataType, x_abs < v127, x_abs - v127, v0);
-    const yy = (xx * xx) >> @splat(DataVecN, @as(u4, 8));
-    return @select(DataType, x_sgn, v64 - yy, yy);
+fn leakyReluUnoptimized(comptime size: comptime_int, comptime alpha: comptime_float, input: [size]DataType, output: *[size]DataType) void {
+    var index: usize = 0;
+    while (index < size) : (index += 1) {
+        const k: DataType = if (input[index] < 0) alpha else 1;
+        output[index] = k * input[index];
+    }
 }
 
-fn quantmoid(comptime size: comptime_int, input: [size]DataType, output: *[size]DataType) void {
+fn leakyReluOptimized(comptime size: comptime_int, comptime alpha: comptime_float, input: [size]DataType, output: *[size]DataType) void {
     if (comptime size % DataVecN != 0) {
         @compileError("");
     }
     var index: usize = 0;
     while (index < size) : (index += DataVecN) {
-        output[index..][0..DataVecN].* = __quantmoid(input[index..][0..DataVecN].*);
+        const in: DataVec = input[index..][0..DataVecN].*;
+        const out = @select(DataType, in < @splat(DataVecN, @as(DataType, 0)), @splat(DataVecN, @as(DataType, alpha)), @splat(DataVecN, @as(DataType, 1))) * in;
+        output[index..][0..DataVecN].* = out;
     }
 }
 
-fn quantmoid_backward(comptime size: comptime_int, input: [size]DataType, input_grad: *[size]f32, output_grad: [size]f32) void {
+pub fn leakyRelu(comptime size: comptime_int, comptime alpha: comptime_float, input: [size]DataType, output: *[size]DataType) void {
+    if (comptime size >= DataVecN) {
+        leakyReluOptimized(size, alpha, input, output);
+    } else {
+        leakyReluUnoptimized(size, alpha, input, output);
+    }
+}
+
+fn leakyReluBackwardUnoptimized(comptime size: comptime_int, comptime alpha: comptime_float, input: [size]DataType, input_grad: *[size]DataType, output_grad: [size]DataType) void {
+    var index: usize = 0;
+    while (index < size) : (index += 1) {
+        const k: DataType = if (input[index] < 0) alpha else 1;
+        input_grad[index] = k * output_grad[index];
+    }
+}
+
+fn leakyReluBackwardOptimized(comptime size: comptime_int, comptime alpha: comptime_float, input: [size]DataType, input_grad: *[size]DataType, output_grad: [size]DataType) void {
+    if (comptime size % DataVecN != 0) {
+        @compileError("");
+    }
+    var index: usize = 0;
+    while (index < size) : (index += DataVecN) {
+        const in: DataVec = input[index..][0..DataVecN].*;
+        const out_grad: DataVec = output_grad[index..][0..DataVecN].*;
+        const in_grad = @select(DataType, in < @splat(DataVecN, @as(DataType, 0)), @splat(DataVecN, @as(DataType, alpha)), @splat(DataVecN, @as(DataType, 1))) * out_grad;
+        input_grad[index..][0..DataVecN].* = in_grad;
+    }
+}
+
+pub fn leakyReluBackward(comptime size: comptime_int, comptime alpha: comptime_float, input: [size]DataType, input_grad: *[size]DataType, output_grad: [size]DataType) void {
+    if (comptime size >= DataVecN) {
+        leakyReluBackwardOptimized(size, alpha, input, input_grad, output_grad);
+    } else {
+        leakyReluBackwardUnoptimized(size, alpha, input, input_grad, output_grad);
+    }
+}
+
+fn linearUnoptimized(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, weight: [input_size][output_size]DataType, output: *[output_size]DataType) void {
     var i: usize = 0;
-    while (i < size) : (i += 1) {
-        if (input[i] >= 127) {
-            input_grad[i] = 1.0 / 128.0;
-        } else if (input[i] <= 127) {
-            input_grad[i] = -1.0 / 128.0;
-        } else if (input[i] >= 0) {
-            input_grad[i] = @intToFloat(f32, input[i] - 127) / 128;
-        } else {
-            input_grad[i] = @intToFloat(f32, -(-input[i] - 127)) / 128;
+    while (i < output_size) : (i += 1) {
+        var j: usize = 0;
+        output[i] = 0;
+        while (j < input_size) : (j += 1) {
+            output[i] += input[j] * weight[j][i];
         }
-        input_grad[i] *= output_grad[i];
-        input_grad[i] = clamp(input_grad[i], grad_min, grad_max);
     }
 }
 
-fn linear(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, output: *[output_size]DataType, weight: [input_size][output_size]DataType) void {
+fn linearOptimized(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, weight: [input_size][output_size]DataType, output: *[output_size]DataType) void {
     if (comptime output_size % DataVecN != 0) {
         @compileError("");
     }
-    var regs: [output_size / DataVecN]DataVec = [_]DataVec{@splat(DataVecN, @as(DataType, 0))} ** (output_size / DataVecN); // no bias
-    var k: usize = 0;
-    var index: usize = 0;
-    var val: DataVec = undefined;
-    for (input) |value, i| {
-        val = @splat(DataVecN, value);
-        k = 0;
-        index = 0;
-        while (index < output_size) : (index += DataVecN) {
-            const w: DataVec = weight[i][index..][0..DataVecN].*;
-            regs[k] = regs[k] + val * w;
+    var regs: [output_size / DataVecN]DataVec = [_]DataVec{@splat(DataVecN, @as(DataType, 0))} ** (output_size / DataVecN);
+    for (input) |value, j| {
+        var k: usize = 0;
+        var i: usize = 0;
+        while (i < output_size) : (i += DataVecN) {
+            const w: DataVec = weight[j][i..][0..DataVecN].*;
+            regs[k] = regs[k] + @splat(DataVecN, value) * w;
             k += 1;
         }
     }
+    var k: usize = 0;
+    var index: usize = 0;
     while (index < output_size) : (index += DataVecN) {
         output[index..][0..DataVecN].* = regs[k];
         k += 1;
     }
 }
 
-fn linear_backward(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, weight: [input_size][output_size]DataType, input_grad: *[input_size]f32, output_grad: [output_size]f32, weight_grad: *[input_size][output_size]f32) void {
+pub fn linear(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, weight: [input_size][output_size]DataType, output: *[output_size]DataType) void {
+    if (comptime output_size >= DataVecN) {
+        linearOptimized(input_size, output_size, input, weight, output);
+    } else {
+        linearUnoptimized(input_size, output_size, input, weight, output);
+    }
+}
+
+fn linearBackwardUnoptimized(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, weight: [input_size][output_size]DataType, input_grad: *[input_size]DataType, weight_grad: *[input_size][output_size]DataType, output_grad: [output_size]DataType) void {
     var i: usize = 0;
     while (i < input_size) : (i += 1) {
         var j: usize = 0;
         while (j < output_size) : (j += 1) {
-            weight_grad[i][j] = output_grad[j] * @intToFloat(f32, input[i]);
-            weight_grad[i][j] = clamp(weight_grad[i][j], grad_min, grad_max);
+            weight_grad[i][j] = output_grad[j] * input[i];
         }
     }
     i = 0;
@@ -91,13 +122,45 @@ fn linear_backward(comptime input_size: comptime_int, comptime output_size: comp
         var j: usize = 0;
         input_grad[i] = 0;
         while (j < output_size) : (j += 1) {
-            input_grad[i] += output_grad[j] * @intToFloat(f32, weight[i][j]);
+            input_grad[i] += output_grad[j] * weight[i][j];
         }
-        input_grad[i] = clamp(input_grad[i], grad_min, grad_max);
     }
 }
 
-fn accumulate(comptime input_size: comptime_int, comptime output_size: comptime_int, activate: []const usize, deactivate: []const usize, output: *[output_size]DataType, weight: [input_size][output_size]DataType) void {
+fn linearBackwardOptimized(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, weight: [input_size][output_size]DataType, input_grad: *[input_size]DataType, weight_grad: *[input_size][output_size]DataType, output_grad: [output_size]DataType) void {
+    if (comptime output_size % DataVecN != 0) {
+        @compileError("");
+    }
+    for (input) |value, i| {
+        var j: usize = 0;
+        while (j < output_size) : (j += DataVecN) {
+            const out_grad: DataVec = output_grad[j..][0..DataVecN].*;
+            const w_grad = out_grad * @splat(DataVecN, value);
+            weight_grad[i][j..][0..DataVecN].* = w_grad;
+        }
+    }
+    var i: usize = 0;
+    while (i < input_size) : (i += 1) {
+        var reg: DataVec = @splat(DataVecN, @as(DataType, 0));
+        var j: usize = 0;
+        while (j < output_size) : (j += DataVecN) {
+            const out_grad: DataVec = output_grad[j..][0..DataVecN].*;
+            const w: DataVec = weight[i][j..][0..DataVecN].*;
+            reg = reg + out_grad * w;
+        }
+        input_grad[i] = @reduce(.Add, reg);
+    }
+}
+
+pub fn linearBackward(comptime input_size: comptime_int, comptime output_size: comptime_int, input: [input_size]DataType, weight: [input_size][output_size]DataType, input_grad: *[input_size]DataType, weight_grad: *[input_size][output_size]DataType, output_grad: [output_size]DataType) void {
+    if (comptime output_size >= DataVecN) {
+        linearBackwardOptimized(input_size, output_size, input, weight, input_grad, weight_grad, output_grad);
+    } else {
+        linearBackwardUnoptimized(input_size, output_size, input, weight, input_grad, weight_grad, output_grad);
+    }
+}
+
+pub fn accumulate(comptime input_size: comptime_int, comptime output_size: comptime_int, activate: []const usize, deactivate: []const usize, weight: [input_size][output_size]DataType, output: *[output_size]DataType) void {
     if (comptime output_size % DataVecN != 0) {
         @compileError("");
     }
@@ -134,20 +197,30 @@ fn accumulate(comptime input_size: comptime_int, comptime output_size: comptime_
     }
 }
 
+// Read raw bytes from .bin file
+fn read(reader: anytype, comptime T: type) !T {
+    const bytes = try reader.readBytesNoEof(@sizeOf(T));
+    return @ptrCast(*align(1) const T, &bytes).*;
+}
+
+// Write raw bytes into .bin file
+fn write(writer: anytype, comptime T: type, value: T) !void {
+    var bytes: [@sizeOf(T)]u8 = undefined;
+    @ptrCast(*align(1) T, &bytes).* = value;
+    try writer.writeAll(bytes[0..]);
+}
+
 const LAYER0_INPUT_SIZE = 512;
 const LAYER0_OUTPUT_SIZE = 32;
 const LAYER1_INPUT_SIZE = LAYER0_OUTPUT_SIZE;
-const LAYER1_OUTPUT_SIZE = 32;
+const LAYER1_OUTPUT_SIZE = 8;
 const LAYER2_INPUT_SIZE = LAYER1_OUTPUT_SIZE;
-const LAYER2_OUTPUT_SIZE = 8;
-const LAYER3_INPUT_SIZE = LAYER2_OUTPUT_SIZE;
-const LAYER3_OUTPUT_SIZE = 1;
+const LAYER2_OUTPUT_SIZE = 1;
 
 const Weights = struct {
     layer0_weight: [LAYER0_INPUT_SIZE][LAYER0_OUTPUT_SIZE]DataType,
     layer1_weight: [LAYER1_INPUT_SIZE][LAYER1_OUTPUT_SIZE]DataType,
     layer2_weight: [LAYER2_INPUT_SIZE][LAYER2_OUTPUT_SIZE]DataType,
-    layer3_weight: [LAYER3_INPUT_SIZE][LAYER3_OUTPUT_SIZE]DataType,
 
     const Self = @This();
 
@@ -155,36 +228,28 @@ const Weights = struct {
         var layer0_weight: [LAYER0_INPUT_SIZE][LAYER0_OUTPUT_SIZE]DataType = undefined;
         var layer1_weight: [LAYER1_INPUT_SIZE][LAYER1_OUTPUT_SIZE]DataType = undefined;
         var layer2_weight: [LAYER2_INPUT_SIZE][LAYER2_OUTPUT_SIZE]DataType = undefined;
-        var layer3_weight: [LAYER3_INPUT_SIZE][LAYER3_OUTPUT_SIZE]DataType = undefined;
         var i: usize = 0;
         while (i < LAYER0_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER0_OUTPUT_SIZE) : (j += 1) {
-                layer0_weight[i][j] = try reader.readIntLittle(DataType);
+                layer0_weight[i][j] = try read(reader, DataType);
             }
         }
         i = 0;
         while (i < LAYER1_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER1_OUTPUT_SIZE) : (j += 1) {
-                layer1_weight[i][j] = try reader.readIntLittle(DataType);
+                layer1_weight[i][j] = try read(reader, DataType);
             }
         }
         i = 0;
         while (i < LAYER2_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER2_OUTPUT_SIZE) : (j += 1) {
-                layer2_weight[i][j] = try reader.readIntLittle(DataType);
+                layer2_weight[i][j] = try read(reader, DataType);
             }
         }
-        i = 0;
-        while (i < LAYER3_INPUT_SIZE) : (i += 1) {
-            var j: usize = 0;
-            while (j < LAYER3_OUTPUT_SIZE) : (j += 1) {
-                layer3_weight[i][j] = try reader.readIntLittle(DataType);
-            }
-        }
-        return Self{ .layer0_weight = layer0_weight, .layer1_weight = layer1_weight, .layer2_weight = layer2_weight, .layer3_weight = layer3_weight };
+        return Self{ .layer0_weight = layer0_weight, .layer1_weight = layer1_weight, .layer2_weight = layer2_weight };
     }
 
     pub fn store(self: *const Self, writer: anytype) !void {
@@ -192,28 +257,21 @@ const Weights = struct {
         while (i < LAYER0_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER0_OUTPUT_SIZE) : (j += 1) {
-                try writer.writeIntLittle(DataType, self.layer0_weight[i][j]);
+                try write(writer, DataType, self.layer0_weight[i][j]);
             }
         }
         i = 0;
         while (i < LAYER1_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER1_OUTPUT_SIZE) : (j += 1) {
-                try writer.writeIntLittle(DataType, self.layer1_weight[i][j]);
+                try write(writer, DataType, self.layer1_weight[i][j]);
             }
         }
         i = 0;
         while (i < LAYER2_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER2_OUTPUT_SIZE) : (j += 1) {
-                try writer.writeIntLittle(DataType, self.layer2_weight[i][j]);
-            }
-        }
-        i = 0;
-        while (i < LAYER3_INPUT_SIZE) : (i += 1) {
-            var j: usize = 0;
-            while (j < LAYER3_OUTPUT_SIZE) : (j += 1) {
-                try writer.writeIntLittle(DataType, self.layer3_weight[i][j]);
+                try write(writer, DataType, self.layer2_weight[i][j]);
             }
         }
     }
@@ -224,11 +282,10 @@ pub const Nnue = struct {
     layer0: [LAYER0_INPUT_SIZE]DataType = [_]DataType{0} ** LAYER0_INPUT_SIZE,
     hidden0: [LAYER0_OUTPUT_SIZE]DataType = [_]DataType{0} ** LAYER0_OUTPUT_SIZE,
     layer1: [LAYER1_INPUT_SIZE]DataType = undefined,
-    hidden1: [LAYER0_OUTPUT_SIZE]DataType = undefined,
+    hidden1: [LAYER1_OUTPUT_SIZE]DataType = undefined,
     layer2: [LAYER2_INPUT_SIZE]DataType = undefined,
     hidden2: [LAYER2_OUTPUT_SIZE]DataType = undefined,
-    layer3: [LAYER3_INPUT_SIZE]DataType = undefined,
-    result: i32 = undefined,
+    layer3: [LAYER2_OUTPUT_SIZE]DataType = undefined,
 
     const Self = @This();
 
@@ -241,14 +298,14 @@ pub const Nnue = struct {
     fn update(self: *Self, board: *const Board) void {
         const width = 15;
         const height = 15;
-        var i: usize = 0;
         var activate = BoundedArray(usize, width * height).init(0) catch unreachable;
         var deactivate = BoundedArray(usize, width * height).init(0) catch unreachable;
+        var i: usize = 0;
         while (i < width) : (i += 1) {
             var j: usize = 0;
             while (j < height) : (j += 1) {
                 const color = board.get(.{ i, j });
-                const index = i * height + width;
+                const index = i * height + j;
                 switch (color) {
                     .None => {
                         if (self.layer0[index] != 0) {
@@ -284,93 +341,57 @@ pub const Nnue = struct {
                 }
             }
         }
-        accumulate(LAYER0_INPUT_SIZE, LAYER0_OUTPUT_SIZE, activate.slice(), deactivate.slice(), &self.hidden0, self.net.layer0_weight);
+        accumulate(LAYER0_INPUT_SIZE, LAYER0_OUTPUT_SIZE, activate.slice(), deactivate.slice(), self.net.layer0_weight, &self.hidden0);
     }
 
     pub fn evaluate(self: *Self, board: *const Board) i32 {
         self.update(board);
-        quantmoid(LAYER0_OUTPUT_SIZE, self.hidden0, &self.layer1);
-        linear(LAYER1_INPUT_SIZE, LAYER1_OUTPUT_SIZE, self.layer1, &self.hidden1, self.net.layer1_weight);
-        quantmoid(LAYER1_OUTPUT_SIZE, self.hidden1, &self.layer2);
-        linear(LAYER2_INPUT_SIZE, LAYER2_OUTPUT_SIZE, self.layer2, &self.hidden2, self.net.layer2_weight);
-        quantmoid(LAYER2_OUTPUT_SIZE, self.hidden2, &self.layer3);
-
-        // Layer 3
-        var i: usize = 0;
-        self.result = 0;
-        while (i < LAYER3_INPUT_SIZE) : (i += 1) {
-            self.result = self.result + self.layer3[i] * self.net.layer3_weight[i][0];
-        }
-
-        return self.result;
+        leakyRelu(LAYER0_OUTPUT_SIZE, 0.1, self.hidden0, &self.layer1);
+        linear(LAYER1_INPUT_SIZE, LAYER1_OUTPUT_SIZE, self.layer1, self.net.layer1_weight, &self.hidden1);
+        leakyRelu(LAYER1_OUTPUT_SIZE, 0.1, self.hidden1, &self.layer2);
+        linear(LAYER2_INPUT_SIZE, LAYER2_OUTPUT_SIZE, self.layer2, self.net.layer2_weight, &self.hidden2);
+        leakyRelu(LAYER2_OUTPUT_SIZE, 0.1, self.hidden2, &self.layer3);
+        return @floatToInt(i32, clamp(self.layer3[0], -10_000, 10_000));
     }
 
-    pub fn backwardPropagation(self: *Self, expect: DataType, rate: f32) void {
-        const k = 2 * @intToFloat(f32, self.result - expect); // square loss function
-        var layer3_grad: [LAYER3_INPUT_SIZE][LAYER3_OUTPUT_SIZE]f32 = [_][LAYER3_OUTPUT_SIZE]f32{[_]f32{0} ** LAYER3_OUTPUT_SIZE} ** LAYER3_INPUT_SIZE;
-        var layer3_k: [LAYER3_INPUT_SIZE]f32 = [_]f32{0} ** LAYER3_INPUT_SIZE;
-        var hidden2_k: [LAYER2_OUTPUT_SIZE]f32 = [_]f32{0} ** LAYER2_OUTPUT_SIZE;
-        var layer2_grad: [LAYER2_INPUT_SIZE][LAYER2_OUTPUT_SIZE]f32 = [_][LAYER2_OUTPUT_SIZE]f32{[_]f32{0} ** LAYER2_OUTPUT_SIZE} ** LAYER2_INPUT_SIZE;
-        var layer2_k: [LAYER2_INPUT_SIZE]f32 = [_]f32{0} ** LAYER2_INPUT_SIZE;
-        var hidden1_k: [LAYER1_OUTPUT_SIZE]f32 = [_]f32{0} ** LAYER1_OUTPUT_SIZE;
-        var layer1_grad: [LAYER1_INPUT_SIZE][LAYER1_OUTPUT_SIZE]f32 = [_][LAYER1_OUTPUT_SIZE]f32{[_]f32{0} ** LAYER1_OUTPUT_SIZE} ** LAYER1_INPUT_SIZE;
-        var layer1_k: [LAYER1_INPUT_SIZE]f32 = [_]f32{0} ** LAYER1_INPUT_SIZE;
-        var hidden0_k: [LAYER0_OUTPUT_SIZE]f32 = [_]f32{0} ** LAYER0_OUTPUT_SIZE;
-        var layer0_grad: [LAYER0_INPUT_SIZE][LAYER0_OUTPUT_SIZE]f32 = [_][LAYER0_OUTPUT_SIZE]f32{[_]f32{0} ** LAYER0_OUTPUT_SIZE} ** LAYER0_INPUT_SIZE;
-        var layer0_k: [LAYER0_INPUT_SIZE]f32 = [_]f32{0} ** LAYER0_INPUT_SIZE;
-        linear_backward(LAYER3_INPUT_SIZE, LAYER3_OUTPUT_SIZE, self.layer3, self.net.layer3_weight, &layer3_k, .{k}, &layer3_grad);
-        quantmoid_backward(LAYER2_OUTPUT_SIZE, self.hidden2, &hidden2_k, layer3_k);
-        linear_backward(LAYER2_INPUT_SIZE, LAYER2_OUTPUT_SIZE, self.layer2, self.net.layer2_weight, &layer2_k, hidden2_k, &layer2_grad);
-        quantmoid_backward(LAYER1_OUTPUT_SIZE, self.hidden1, &hidden1_k, layer2_k);
-        linear_backward(LAYER1_INPUT_SIZE, LAYER1_OUTPUT_SIZE, self.layer1, self.net.layer1_weight, &layer1_k, hidden1_k, &layer1_grad);
-        quantmoid_backward(LAYER0_OUTPUT_SIZE, self.hidden0, &hidden0_k, layer1_k);
-        linear_backward(LAYER0_INPUT_SIZE, LAYER0_OUTPUT_SIZE, self.layer0, self.net.layer0_weight, &layer0_k, hidden0_k, &layer0_grad);
+    pub fn backwardPropagation(self: *Self, expect: i32, rate: DataType) void {
+        const layer3_k: [LAYER2_OUTPUT_SIZE]DataType = .{self.layer3[0] - @intToFloat(DataType, expect)};
+        var hidden2_k: [LAYER2_OUTPUT_SIZE]DataType = undefined;
+        var layer2_grad: [LAYER2_INPUT_SIZE][LAYER2_OUTPUT_SIZE]DataType = undefined;
+        var layer2_k: [LAYER2_INPUT_SIZE]DataType = undefined;
+        var hidden1_k: [LAYER1_OUTPUT_SIZE]DataType = undefined;
+        var layer1_grad: [LAYER1_INPUT_SIZE][LAYER1_OUTPUT_SIZE]DataType = undefined;
+        var layer1_k: [LAYER1_INPUT_SIZE]DataType = undefined;
+        var hidden0_k: [LAYER0_OUTPUT_SIZE]DataType = undefined;
+        var layer0_grad: [LAYER0_INPUT_SIZE][LAYER0_OUTPUT_SIZE]DataType = undefined;
+        var layer0_k: [LAYER0_INPUT_SIZE]DataType = undefined;
+        leakyReluBackward(LAYER2_OUTPUT_SIZE, 0.1, self.hidden2, &hidden2_k, layer3_k);
+        linearBackward(LAYER2_INPUT_SIZE, LAYER2_OUTPUT_SIZE, self.layer2, self.net.layer2_weight, &layer2_k, &layer2_grad, hidden2_k);
+        leakyReluBackward(LAYER1_OUTPUT_SIZE, 0.1, self.hidden1, &hidden1_k, layer2_k);
+        linearBackward(LAYER1_INPUT_SIZE, LAYER1_OUTPUT_SIZE, self.layer1, self.net.layer1_weight, &layer1_k, &layer1_grad, hidden1_k);
+        leakyReluBackward(LAYER0_OUTPUT_SIZE, 0.1, self.hidden0, &hidden0_k, layer1_k);
+        linearBackward(LAYER0_INPUT_SIZE, LAYER0_OUTPUT_SIZE, self.layer0, self.net.layer0_weight, &layer0_k, &layer0_grad, hidden0_k);
 
+        const lambda = 0.05;
         var i: usize = 0;
         while (i < LAYER0_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER0_OUTPUT_SIZE) : (j += 1) {
-                const old_sign: DataType = if (self.net.layer0_weight[i][j] >= 0) 1 else -1;
-                self.net.layer0_weight[i][j] = @floatToInt(DataType, clamp(@intToFloat(f32, self.net.layer0_weight[i][j]) - layer0_grad[i][j] * rate, weight_min, weight_max));
-                if (self.net.layer0_weight[i][j] == 0) {
-                    self.net.layer0_weight[i][j] = -old_sign;
-                }
+                self.net.layer0_weight[i][j] -= rate * (layer0_grad[i][j] + lambda * self.net.layer0_weight[i][j]);
             }
         }
         i = 0;
         while (i < LAYER1_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER1_OUTPUT_SIZE) : (j += 1) {
-                std.log.warn("layer1 grad {} {}: {}", .{ i, j, layer1_grad[i][j] });
-                const old_sign: DataType = if (self.net.layer1_weight[i][j] >= 0) 1 else -1;
-                self.net.layer1_weight[i][j] = @floatToInt(DataType, clamp(@intToFloat(f32, self.net.layer1_weight[i][j]) - layer1_grad[i][j] * rate, weight_min, weight_max));
-                if (self.net.layer1_weight[i][j] == 0) {
-                    self.net.layer1_weight[i][j] = -old_sign;
-                }
+                self.net.layer1_weight[i][j] -= rate * (layer1_grad[i][j] + lambda * self.net.layer1_weight[i][j]);
             }
         }
         i = 0;
         while (i < LAYER2_INPUT_SIZE) : (i += 1) {
             var j: usize = 0;
             while (j < LAYER2_OUTPUT_SIZE) : (j += 1) {
-                const old_sign: DataType = if (self.net.layer2_weight[i][j] >= 0) 1 else -1;
-                self.net.layer2_weight[i][j] = @floatToInt(DataType, clamp(@intToFloat(f32, self.net.layer2_weight[i][j]) - layer2_grad[i][j] * rate, weight_min, weight_max));
-                if (self.net.layer2_weight[i][j] == 0) {
-                    self.net.layer2_weight[i][j] = -old_sign;
-                }
-            }
-        }
-        i = 0;
-        while (i < LAYER3_INPUT_SIZE) : (i += 1) {
-            var j: usize = 0;
-            std.log.warn("layer3 particial {}: {}", .{ i, layer3_k[i] });
-            while (j < LAYER3_OUTPUT_SIZE) : (j += 1) {
-                std.log.warn("layer3 grad {} {}: {}", .{ i, j, layer3_grad[i][j] });
-                const old_sign: DataType = if (self.net.layer3_weight[i][j] >= 0) 1 else -1;
-                self.net.layer3_weight[i][j] = @floatToInt(DataType, clamp(@intToFloat(f32, self.net.layer3_weight[i][j]) - layer3_grad[i][j] * rate, weight_min, weight_max));
-                if (self.net.layer3_weight[i][j] == 0) {
-                    self.net.layer3_weight[i][j] = -old_sign;
-                }
+                self.net.layer2_weight[i][j] -= rate * (layer2_grad[i][j] + lambda * self.net.layer2_weight[i][j]);
             }
         }
     }

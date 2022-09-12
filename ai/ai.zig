@@ -28,7 +28,7 @@ pub const Brain = struct {
         self.board = try Board.init(manager.board.dimension[0], manager.board.dimension[1], manager.allocator);
         errdefer self.board.deinit();
         const cwd = std.fs.cwd();
-        const nnue_data = try cwd.openFile("ai/nnue.bin", .{});
+        const nnue_data = try cwd.openFile("nnue.bin", .{});
         defer nnue_data.close();
         const reader = nnue_data.reader();
         self.nnue = try Nnue.init(reader);
@@ -66,24 +66,12 @@ pub const Brain = struct {
         _ = self;
         _ = x;
         _ = y;
+        self.update();
+        self.board.display();
         const evaluators = @import("evaluate.zig");
-        const old_nnue_score = evaluators.evaluateAllNnue(self);
-        const classical_score = evaluators.evaluateAllClassical(self);
-        var expect_score = classical_score;
-        if (expect_score > 30000) {
-            expect_score = 30000;
-        }
-        else if (expect_score < -30000) {
-            expect_score = 30000;
-        }
-        self.nnue.backwardPropagation(@truncate(i16, expect_score), 0.0003);
-        const new_nnue_score = evaluators.evaluateAllNnue(self);
-        protocol.response(.Message, "std = {}, nnue(old) = {}, nnue(new) = {}", .{classical_score, old_nnue_score, new_nnue_score});
-        const cwd = std.fs.cwd();
-        const new_nnue = try cwd.createFile("nnue_new.bin", .{});
-        defer new_nnue.close();
-        const writer = new_nnue.writer();
-        try self.nnue.net.store(writer);
+        const score = evaluators.evaluateAllClassical(self);
+        const nnue_score = evaluators.evaluateAllNnue(self);
+        protocol.response(.Message, "eval {} (nnue {})", .{score, nnue_score});
     }
 
     fn randomPlay(self: *const Self) [2]usize {
