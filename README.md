@@ -1,6 +1,6 @@
 ## Gomoku.zig
 
-A renju AI compatitable with Gomoku Cup Protocol.
+A renju AI compatible with Gomoku Cup Protocol.
 
 ### User Interface
 
