@@ -5,7 +5,7 @@
 #include <sys/select.h>
 #include "pty.h"
 
-#define BUF_SIZE (256)
+#define BUF_SIZE (1024)
 
 int turn = 0;
 int engine_fd[2];

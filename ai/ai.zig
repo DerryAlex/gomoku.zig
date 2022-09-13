@@ -51,13 +51,13 @@ pub const Brain = struct {
         }
     }
 
-    pub fn play(self: *Self) error{OutOfMemory}![2]usize {
+    pub fn play(self: *Self) ![2]usize {
         self.update();
         return search(self) catch |err| switch (err) {
-            error.OutOfMemory => {
-                return error.OutOfMemory;
-            },
             error.TimeOut => self.randomPlay(),
+            else => {
+                return err;
+            },
         };
     }
 
@@ -71,7 +71,7 @@ pub const Brain = struct {
         const evaluators = @import("evaluate.zig");
         const score = evaluators.evaluateAllClassical(self);
         const nnue_score = evaluators.evaluateAllNnue(self);
-        protocol.response(.Message, "eval {} (nnue {})", .{score, nnue_score});
+        protocol.response(.Message, "eval {} (nnue {})", .{ score, nnue_score });
     }
 
     fn randomPlay(self: *const Self) [2]usize {
