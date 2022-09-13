@@ -10,8 +10,8 @@ const getOptimal = @import("vct.zig").getOptimal;
 
 const vcf_depth_limit = 20;
 const vct_depth_limit = 12;
-const vcf_time_limit = 1_000_000;
-const vct_time_limit = 1_000_000;
+const vcf_time_limit = 1 * std.time.ns_per_s;
+const vct_time_limit = 1 * std.time.ns_per_s;
 const vct_defend_depth_limit = 6;
 const vct_defend_time_limit = 500_000;
 

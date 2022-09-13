@@ -28,7 +28,7 @@ pub const Brain = struct {
         self.board = try Board.init(manager.board.dimension[0], manager.board.dimension[1], manager.allocator);
         errdefer self.board.deinit();
         const cwd = std.fs.cwd();
-        const nnue_data = try cwd.openFile("nnue.bin", .{});
+        const nnue_data = try cwd.openFile("data/nnue.bin", .{});
         defer nnue_data.close();
         const reader = nnue_data.reader();
         self.nnue = try Nnue.init(reader);
