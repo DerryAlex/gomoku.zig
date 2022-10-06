@@ -1,10 +1,11 @@
 const builtin = @import("builtin");
 const std = @import("std");
+const root = @import("root");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const Timer = std.time.Timer;
-const Array = @import("lib/array.zig").Array;
-const Brain = @import("ai/ai.zig").Brain;
+const Array = root.lib.array.Array;
+const Brain = root.ai.Brain;
 
 pub const Color = enum {
     None,
@@ -335,8 +336,6 @@ pub const GameManager = struct {
     }
 
     fn reset(self: *Self) void {
-        // self.brain.deinit();
-        // self.player = .None;
         self.time_left = self.timeout_match;
         std.mem.set(Color, self.board.data, .None);
     }

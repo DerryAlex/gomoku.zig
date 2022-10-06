@@ -1,23 +1,20 @@
 const std = @import("std");
-const GeneralPurposeAllocator = std.heap.GeneralPurposeAllocator;
-const protocol = @import("protocol.zig");
-const Command = protocol.Command;
-const GameManager = protocol.GameManager;
-const response = protocol.response;
-const scanner = @import("lib/scanner.zig").scanner;
+pub const lib = @import("lib.zig");
+pub const ai = @import("ai.zig");
+pub const protocol = @import("protocol.zig");
 
 pub fn main() !void {
-    var gpa = GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer if (gpa.deinit()) {
         @panic("leak");
     };
     const allocator = gpa.allocator();
-    var stdin_scanner = scanner(std.io.getStdIn().reader());
-    var manager: GameManager = undefined;
+    var stdin_scanner = lib.scanner.scanner(std.io.getStdIn().reader());
+    var manager: protocol.GameManager = undefined;
     while (true) {
-        var command = stdin_scanner.scanAlloc(Command, allocator) catch |err| switch (err) {
+        var command = stdin_scanner.scanAlloc(protocol.Command, allocator) catch |err| switch (err) {
             error.InvalidCommand => {
-                response(.Unknown, "Invalid Command", .{});
+                protocol.response(.Unknown, "Invalid Command", .{});
                 continue;
             },
             else => {
@@ -27,12 +24,12 @@ pub fn main() !void {
         defer command.deinit();
         switch (command) {
             .Start => {
-                manager = try GameManager.init(command.Start.size, command.Start.size, allocator);
-                response(.Ok, "", .{});
+                manager = try protocol.GameManager.init(command.Start.size, command.Start.size, allocator);
+                protocol.response(.Ok, "", .{});
             },
             .Rectstart => {
-                manager = try GameManager.init(command.Rectstart.x, command.Rectstart.y, allocator);
-                response(.Ok, "", .{});
+                manager = try protocol.GameManager.init(command.Rectstart.x, command.Rectstart.y, allocator);
+                protocol.response(.Ok, "", .{});
             },
             .End => {
                 manager.deinit();

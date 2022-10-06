@@ -1,4 +1,4 @@
-const Brain = @import("ai.zig").Brain;
+const Brain = @import("../ai.zig").Brain;
 
 pub fn evaluateAll(brain: *Brain) i32 {
     if (false) { // NOTE: NNUE is weak
@@ -17,12 +17,8 @@ pub fn evaluateAllClassical(brain: *const Brain) i32 {
             if (brain.board.get(.{ i, j }) == .None) {
                 result += brain.board.evaluate(i, j, true);
                 result -= brain.board.evaluate(i, j, false);
-                if (brain.board.evaluate(i, j, true) >= 100_000) {
-                    result += 100_000_000;
-                }
-                if (brain.board.evaluate(i, j, false) >= 100_000) {
-                    result -= 100_000_000;
-                }
+                if (brain.board.evaluate(i, j, true) >= 100_000) return 100_000_000;
+                if (brain.board.evaluate(i, j, false) >= 100_000) return -100_000_000;
             }
         }
     }

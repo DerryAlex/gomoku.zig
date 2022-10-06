@@ -1,14 +1,14 @@
 const std = @import("std");
+const root = @import("root");
 const Allocator = std.mem.Allocator;
-
-const Array = @import("../lib/array.zig").Array;
+const Array = root.lib.array.Array;
+const protocol = root.protocol;
+const GameManager = protocol.GameManager;
+const response = protocol.response;
 const Nnue = @import("nnue.zig").Nnue;
-
-const GameManager = @import("../protocol.zig").GameManager;
-const response = @import("../protocol.zig").response;
-
-const getPattern = @import("pattern.zig").getPattern;
-const getScore = @import("pattern.zig").getScore;
+const pattern = @import("pattern.zig");
+const getPattern = pattern.getPattern;
+const getScore = pattern.getScore;
 
 pub const Color = enum {
     None,

@@ -1,12 +1,13 @@
 const std = @import("std");
+const root = @import("root");
 const sort = std.sort.sort;
-const Brain = @import("ai.zig").Brain;
+const response = root.protocol.response;
+const Brain = @import("../ai.zig").Brain;
 const evaluateAll = @import("evaluate.zig").evaluateAll;
-const response = @import("../protocol.zig").response;
-
-const vcfSolver = @import("vct.zig").vcfSolver;
-const vctSolver = @import("vct.zig").vctSolver;
-const getOptimal = @import("vct.zig").getOptimal;
+const vct = @import("vct.zig");
+const vcfSolver = vct.vcfSolver;
+const vctSolver = vct.vctSolver;
+const getOptimal = vct.getOptimal;
 
 const vcf_depth_limit = 20;
 const vct_depth_limit = 12;

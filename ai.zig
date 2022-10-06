@@ -1,14 +1,18 @@
 const std = @import("std");
+const root = @import("root");
 const Allocator = std.mem.Allocator;
-
-const protocol = @import("../protocol.zig");
+const protocol = root.protocol;
 const GameManager = protocol.GameManager;
+pub const board = @import("ai/board.zig");
+pub const evaluate = @import("ai/evaluate.zig");
+pub const nnue = @import("ai/nnue.zig");
+pub const search = @import("ai/search.zig").search;
+const Board = board.Board;
+const Nnue = nnue.Nnue;
+const evaluateAllClassical = evaluate.evaluateAllClassical;
+const evaluateAllNnue = evaluate.evaluateAllNnue;
 
-const Board = @import("board.zig").Board;
-const Nnue = @import("nnue.zig").Nnue;
-const search = @import("search.zig").search;
-
-fn colorPromote(color: protocol.Color) @import("board.zig").Color {
+fn colorPromote(color: protocol.Color) board.Color {
     return switch (color) {
         .None => .None,
         .Black => .Black,
@@ -63,14 +67,12 @@ pub const Brain = struct {
 
     /// show debug info
     pub fn evaluate(self: *Self, x: usize, y: usize) !void {
-        _ = self;
         _ = x;
         _ = y;
         self.update();
         self.board.display();
-        const evaluators = @import("evaluate.zig");
-        const score = evaluators.evaluateAllClassical(self);
-        const nnue_score = evaluators.evaluateAllNnue(self);
+        const score = evaluateAllClassical(self);
+        const nnue_score = evaluateAllNnue(self);
         protocol.response(.Message, "eval {} (nnue {})", .{ score, nnue_score });
     }
 

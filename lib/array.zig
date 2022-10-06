@@ -14,7 +14,7 @@ pub fn Array(comptime T: type, comptime dimensions: comptime_int) type {
         pub fn init(allocator: Allocator, dimension: Dimension) error{OutOfMemory}!Self {
             var dimension_dupe: Dimension = undefined;
             if (dimensions == 0) {
-                dimension_dupe = allocator.dupe(usize, dimension);
+                dimension_dupe = try allocator.dupe(usize, dimension);
             } else {
                 std.mem.copy(usize, dimension_dupe[0..], dimension[0..]);
             }

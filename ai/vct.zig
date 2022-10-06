@@ -1,8 +1,9 @@
 const std = @import("std");
+const root = @import("root");
 const Timer = std.time.Timer;
 const sort = std.sort.sort;
-const Brain = @import("ai.zig").Brain;
-const response = @import("../protocol.zig").response;
+const response = root.protocol.response;
+const Brain = @import("../ai.zig").Brain;
 
 var time_limit: u64 = undefined;
 var timer: std.time.Timer = undefined;
