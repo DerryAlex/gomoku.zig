@@ -3,7 +3,6 @@ const std = @import("std");
 const root = @import("root");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
-const Timer = std.time.Timer;
 const Array = root.lib.array.Array;
 const Brain = root.ai.Brain;
 
@@ -307,7 +306,7 @@ pub const GameManager = struct {
     rule: Rule = .{ .mask = 0 },
     folder: ?[]u8 = null,
     player: Color = .None,
-    timer: Timer,
+    timestamp: i128,
     brain: *Brain,
     allocator: Allocator,
 
@@ -320,10 +319,9 @@ pub const GameManager = struct {
         var board = try Array(Color, 2).init(allocator, [2]usize{ width, height });
         errdefer board.deinit();
         std.mem.set(Color, board.data, .None);
-        var timer = try Timer.start();
         var brain = try allocator.create(Brain);
         errdefer allocator.destroy(brain);
-        return Self{ .board = board, .timer = timer, .brain = brain, .allocator = allocator };
+        return Self{ .board = board, .timestamp = std.time.nanoTimestamp(), .brain = brain, .allocator = allocator };
     }
 
     pub fn deinit(self: Self) void {
@@ -340,17 +338,21 @@ pub const GameManager = struct {
         std.mem.set(Color, self.board.data, .None);
     }
 
+    inline fn timeLap(self: *const Self) u64 {
+        return @truncate(u64, @bitCast(u128, std.time.nanoTimestamp() - self.timestamp));
+    }
+
     /// Time left for turn (nanoseconds)
-    pub inline fn timeLeft(self: *Self) u64 {
-        return std.math.min(self.time_left, self.timeout_turn) -| self.timer.read();
+    pub inline fn timeLeft(self: *const Self) u64 {
+        return std.math.min(self.time_left, self.timeout_turn) -| self.timeLap();
     }
 
     // Call brain
     fn play(self: *Self) !void {
-        self.timer.reset();
+        self.timestamp = std.time.nanoTimestamp();
         const position = try self.brain.play();
         response(.Answer, "", .{ position[0], position[1] });
-        const lap = self.timer.read();
+        const lap = self.timeLap();
         self.time_left = self.time_left -| lap;
         self.board.set(position, self.player);
     }

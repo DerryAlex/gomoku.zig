@@ -104,7 +104,8 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
         while (i < width) : (i += 1) {
             var j: usize = 0;
             while (j < height) : (j += 1) {
-                candidate[index] = .{ i, j };
+                candidate[index][0] = i;
+                candidate[index][1] = j;
                 index += 1;
             }
         }
@@ -162,7 +163,8 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
         }
         if (beta <= alpha) {
             if (depth == 0) {
-                optimal = .{ best_x, best_y };
+                optimal[0] = best_x;
+                optimal[1] = best_y;
             }
             if (is_black) {
                 return beta;
@@ -172,7 +174,8 @@ fn alphabeta(depth: usize, is_black: bool, arg_alpha: i32, arg_beta: i32) error{
         }
     }
     if (depth == 0) {
-        optimal = .{ best_x, best_y };
+        optimal[0] = best_x;
+        optimal[1] = best_y;
     }
     if (is_black) {
         return alpha;

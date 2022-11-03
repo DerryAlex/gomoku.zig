@@ -40,13 +40,13 @@ x   x   x
 
 Simply combine the shape in four directions to get an evaluation. For example, score("two" + "open three" + "none" + "none") = score("two") + score("open three"), score("open three" + "open three" + "none" + "none") = special_score("open three" + "open three").
 
-NOTE: This method cannot handle false forbidden moves and it ignores the influence of pieces outside the union jack area. To deal with forbidden moves, recursion is needed(as what `renju.zig` does). For the latter drawback, see the following example:
+NOTE: This method cannot handle false forbidden moves and it ignores pieces outside the union jack area. To deal with forbidden moves, recursion is needed(as what `renju.zig` does). For the latter drawback, see the following example:
 
 ```
 ○┼┼┼┼
-┼●○┼▲
+┼●○┼┼
 ┼┼●○●
-┼┼┼●┼
+┼┼┼●▲
 ┼┼┼┼┼
 ```
 
@@ -54,7 +54,7 @@ The triangle piece is only considered as a plain "open two".
 
 ##### NNUE
 
-The NNUE is implemented. However, it is not well trained. USE WITH CARE.
+
 
 ##### VCF & VCT
 
@@ -62,7 +62,7 @@ Check whether we can win by continuous threat. NOTE: This calls fast evaluation 
 
 ##### Min-Max Search
 
-If VCF & VCT do not work, do a min-max search. Alpha-beta pruning is applied. Iterative deepening and heuristic method is also used. The width for each node is almost hardwire to `8`.
+If VCF and VCT do not work, do a min-max search. Alpha-beta pruning is applied. Iterative deepening and heuristic method is also used. The width for each node is almost hardwired to `8`.
 
 ### License
 

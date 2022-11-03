@@ -4,8 +4,8 @@ const patterns = @import("pattern.zig").patterns;
 
 const score: [patterns]i32 = [_]i32{ 0, 1024, 1024, 256, 32, 32, 8, 4, 1 };
 
-var pattern: [256][256][2]Pattern = [_][256][2]Pattern{[_][2]Pattern{[_]Pattern{.None} ** 2} ** 256} ** 256;
-var pattern_score: [patterns][patterns][patterns][patterns][2]i32 = [_][patterns][patterns][patterns][2]i32{[_][patterns][patterns][2]i32{[_][patterns][2]i32{[_][2]i32{[_]i32{0} ** 2} ** patterns} ** patterns} ** patterns} ** patterns;
+pub var pattern: [256][256][2]Pattern = [_][256][2]Pattern{[_][2]Pattern{[_]Pattern{.None} ** 2} ** 256} ** 256;
+pub var pattern_score: [patterns][patterns][patterns][patterns][2]i32 = [_][patterns][patterns][patterns][2]i32{[_][patterns][patterns][2]i32{[_][patterns][2]i32{[_][2]i32{[_]i32{0} ** 2} ** patterns} ** patterns} ** patterns} ** patterns;
 
 // Bit representation (L4,L3,L2,L1,R1,R2,R3,R4)
 fn checkFive(self: u8, opponent: u8) Pattern {

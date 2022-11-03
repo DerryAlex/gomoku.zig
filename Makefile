@@ -5,7 +5,7 @@ all: pbrain manager human
 ZIG ?= zig
 
 pbrain: *.zig lib/*.zig ai/*.zig ai/pattern.bin ai/score.bin
-	$(ZIG) build-exe main.zig -O ReleaseSafe -fstage1
+	$(ZIG) build-exe main.zig -O ReleaseSafe
 	mv main pbrain
 
 ai/pattern_generator: ai/pattern.zig ai/pattern_generator.zig
