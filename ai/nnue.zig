@@ -7,6 +7,7 @@ const DataVecN = 256 / @bitSizeOf(DataType);
 const DataVec = @Vector(DataVecN, DataType);
 
 pub fn clamp(value: DataType, min_val: DataType, max_val: DataType) DataType {
+    if (std.math.isNan(value)) return if (std.math.signbit(value)) min_val else max_val;
     const val_c = if (value < min_val) min_val else value;
     return if (val_c > max_val) max_val else val_c;
 }

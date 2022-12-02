@@ -81,7 +81,8 @@ pub const Brain = struct {
         const rng = randomAlgo.random();
         var position: [2]usize = undefined;
         while (true) {
-            position = .{ rng.uintLessThan(usize, self.manager.board.dimension[0]), rng.uintLessThan(usize, self.manager.board.dimension[1]) };
+            position[0] = rng.uintLessThan(usize, self.manager.board.dimension[0]);
+            position[1] = rng.uintLessThan(usize, self.manager.board.dimension[1]);
             if (self.manager.board.get(position) == .None) {
                 break;
             }

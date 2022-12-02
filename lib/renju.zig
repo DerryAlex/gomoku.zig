@@ -1,5 +1,6 @@
 const std = @import("std");
 const trait = std.meta.trait;
+const Child = std.meta.Child;
 const Array = @import("array.zig").Array;
 const Color = enum { None, Black, White };
 
@@ -37,16 +38,16 @@ pub const opening = [26][3][2]usize{
 const dir = [4][2]isize{ [_]isize{ 1, 0 }, [_]isize{ 0, 1 }, [_]isize{ 1, 1 }, [_]isize{ 1, -1 } };
 
 fn isArray(comptime T: type) bool {
-    return trait.hasField("dimension")(T) and trait.hasField("data")(T);
+    return trait.hasField("dimension")(Child(T)) and trait.hasField("data")(Child(T));
 }
 
 fn isValidCoordinate(board: anytype, x: isize, y: isize) bool {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     return 0 <= x and x < board.dimension[0] and 0 <= y and y < board.dimension[1];
 }
 
 fn countAll(board: anytype, x: usize, y: usize, comptime countFn: *const fn (anytype, usize, usize, comptime_int, comptime_int) usize) usize {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     var result: usize = 0;
     inline for (dir) |n| {
         const dx = n[0];
@@ -57,7 +58,7 @@ fn countAll(board: anytype, x: usize, y: usize, comptime countFn: *const fn (any
 }
 
 fn count(board: anytype, x: usize, y: usize, comptime dx: comptime_int, comptime dy: comptime_int) usize {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     var result: usize = 0;
     const color = board.get([2]usize{ x, y });
     var i = @bitCast(isize, x);
@@ -78,7 +79,7 @@ fn count(board: anytype, x: usize, y: usize, comptime dx: comptime_int, comptime
 }
 
 fn countFour(board: anytype, x: usize, y: usize, comptime dx: comptime_int, comptime dy: comptime_int) usize {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     var result: usize = 0;
     const color = board.get([2]usize{ x, y });
     var i = @bitCast(isize, x);
@@ -116,7 +117,7 @@ fn countFour(board: anytype, x: usize, y: usize, comptime dx: comptime_int, comp
 }
 
 fn countStraightFour(board: anytype, x: usize, y: usize, comptime dx: comptime_int, comptime dy: comptime_int) usize {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     const color = board.get([2]usize{ x, y });
     var i = @bitCast(isize, x);
     var j = @bitCast(isize, y);
@@ -132,7 +133,7 @@ fn countStraightFour(board: anytype, x: usize, y: usize, comptime dx: comptime_i
 }
 
 fn countThree(board: anytype, x: usize, y: usize, comptime dx: comptime_int, comptime dy: comptime_int) usize {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     var result: usize = 0;
     const color = board.get([2]usize{ x, y });
     var i = @bitCast(isize, x);
@@ -178,7 +179,7 @@ fn countThree(board: anytype, x: usize, y: usize, comptime dx: comptime_int, com
 }
 
 pub fn checkWin(board: anytype, x: usize, y: usize) bool {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     const isWhitePlayer = board.get([2]usize{ x, y }) == .White;
     inline for (dir) |n| {
         const dx = n[0];
@@ -192,7 +193,7 @@ pub fn checkWin(board: anytype, x: usize, y: usize) bool {
 }
 
 pub fn checkLegal(board: anytype, x: usize, y: usize) bool {
-    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: Array(Color, 2)");
+    if (comptime !isArray(@TypeOf(board))) @compileError("Expect board: *Array(Color, 2)");
     const isWhitePlayer = board.get([2]usize{ x, y }) == .White;
     if (isWhitePlayer) {
         return true;
