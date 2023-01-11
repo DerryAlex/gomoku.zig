@@ -14,8 +14,11 @@ ai/pattern_generator: ai/pattern.zig ai/pattern_generator.zig
 ai/pattern.bin ai/score.bin: ai/pattern_generator
 	cd ai && ./pattern_generator
 
-manager: ui/pseudo_manager.c ui/pty.c ui/pty.h
-	$(CC) ui/pseudo_manager.c ui/pty.c -o manager
+lib/referee.a: lib/referee.zig
+	cd lib && $(ZIG) build-lib referee.zig -O ReleaseSafe -fPIE
+
+manager: ui/pseudo_manager.c ui/pty.c ui/pty.h lib/referee.a lib/referee.h
+	$(CC) ui/pseudo_manager.c ui/pty.c lib/libreferee.a -o manager
 
 human: ui/human.c
 	$(CC) ui/human.c -o human

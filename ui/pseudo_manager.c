@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include "pty.h"
+#include "../lib/referee.h"
 
 #define BUF_SIZE (1024)
 
@@ -32,6 +33,16 @@ void process(char *buf, int len) {
 		line_len = strlen(line);
 		if (offset + line_len < len) line_len++;
 		if (sscanf(line, "%d,%d", &x, &y) == 2) {
+			referee_update(x, y);
+			if (referee_check_win()) {
+				printf("%s win\n", turn ? "WHITE" : "BLACK");
+				exit(0);
+			}
+			else if (!referee_check_legal()) {
+				printf("FORBIDDEN MOVE\n");
+				printf("WHITE win\n");
+				exit(0);
+			}
 			turn = !turn;
 			line_len = sprintf(line, "TURN %d,%d\n", x, y);
 			write(engine_fd[turn], line, line_len);
@@ -49,6 +60,7 @@ int main(int argc, char const *argv[])
 	start_engine(0, argv + 1);
 	start_engine(1, argv + 1);
 	start_game();
+	referee_init();
 
 	fd_set in_fds;
 	char buf[BUF_SIZE];
