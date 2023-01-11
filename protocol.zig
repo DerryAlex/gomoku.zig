@@ -130,7 +130,7 @@ pub const Command = union(enum) {
                 };
                 try array_list.append(Datum{ .x = x, .y = y, .field = field });
             }
-            return Board{ .data = array_list.toOwnedSlice(), .allocator = allocator };
+            return Board{ .data = try array_list.toOwnedSlice(), .allocator = allocator };
         }
 
         pub fn deinit(self: Board) void {

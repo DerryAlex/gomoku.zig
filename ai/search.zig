@@ -43,7 +43,7 @@ pub fn search(arg_brain: *Brain) error{ OutOfMemory, TimeOut }![2]usize {
     best[0] = search_terminate_value;
     search_depth_limit = search_depth_limit_default;
     search_width_limit = search_width_limit_default;
-    while (!isTimeOut()) : (search_depth_limit += 2) {
+    while (!isTimeOut() and search_depth_limit <= 100) : (search_depth_limit += 2) {
         optimal[0] = search_terminate_value;
         const score = try alphabeta(0, is_black, -search_win_threshold, search_win_threshold);
         if (score == search_terminate_value) {
